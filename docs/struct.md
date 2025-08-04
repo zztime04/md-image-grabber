@@ -11,7 +11,7 @@ md-image-grabber/
 ├── README.md
 ├── setup.py                # （可选）打包安装脚本
 ├── requirements.txt        # 依赖列表
-├── source/
+├── src/
 │   ├── __init__.py
 │   ├── cli.py              # 命令行接口
 │   ├── scanner.py          # 文件/目录扫描
@@ -34,19 +34,20 @@ md-image-grabber/
 
 * 定义 `--input/-i`、`--output-dir/-o`、`--verbose` 等参数。
 * 解析命令行选项并初始化全局配置对象。
+* 建议定义一个 Config 数据类或对象，集中管理 input_root、output_root、verbose 等参数，避免全局变量导致的耦合
 * 调用核心流程：扫描 → 解析 → 下载 → 重写 → 写出。
 
 ### 2. `scanner.py`
 
 * 函数 `scan_files(input_path: Path) → List[Path]`
-
   * 单文件或目录模式：识别所有 `.md` 文件（递归）。
   * 返回源文件的绝对路径列表。
 
 * 函数 `compute_output_path(src: Path, input_root: Path, output_root: Path) → Path`
-
   * 基于源文件相对路径，计算对应的输出文件路径。
 
+* scanner.py 的函数设计可补充忽略模式或使用生成器以按需返回文件路径，减少内存占用并便于大规模目录处理
+  
 ### 3. `parser.py`
 
 * 类 `MarkdownImageParser`
@@ -55,21 +56,20 @@ md-image-grabber/
   * 方法 `extract_image_nodes() → List[ImageNode]`：遍历 AST，收集原始 URL、alt 文本及在 AST 中的引用位置。
   * 方法 `update_image_sources(mapping: Dict[orig_url, local_path]) → AST`：在原 AST 上替换节点。
 
+* 使用 dataclass 以增强可读性并方便后续扩展字段
+<!--
 * 数据结构 `ImageNode`（例如 `namedtuple`）
-
   * `url: str`, `alt: str`, `position: SourcePosition`
-
+-->
+  
 ### 4. `downloader.py`
 
 * 函数 `download_image(url: str, dest: Path, timeout: int, retries: int) → bool`
-
   * 流式下载、保存到 `dest`，返回成功标志。
-
 * 可选并发封装，如 `download_images_concurrent(tasks: List[DownloadTask])`.
-
 * 数据结构 `DownloadTask`
-
   * `url: str`, `dest: Path`
+* 可以将网络请求与文件写入逻辑分离，并提倡重用会话对象以提高效率，便于单元测试与错误定位
 
 ### 5. `writer.py`
 
